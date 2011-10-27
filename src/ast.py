@@ -60,10 +60,26 @@ class Node:
         self.lin.append(node)
 
     def __str__(self):
-        raise NotImplementedError()
+        return self.info.__str__()
 
     def __repr__(self):
         return "-->" + self.__str__() + "<--"
+
+class PrintNodeVisitor:
+
+    def __init__(self):
+        self.viz = []
+        self.lvl = 0
+
+
+    def visit(self, node):
+        print '\t' * self.lvl + node.__str__()
+        self.viz.append (node)
+        for next_node in node.lout:
+            if next_node not in self.viz:
+                self.lvl += 1
+                self.visit( next_node)
+                self.lvl -= 1
 
 class Block(Node):
     """
