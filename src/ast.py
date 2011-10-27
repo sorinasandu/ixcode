@@ -41,6 +41,24 @@ class Node:
     Base class for all nodes in AST. All methods raise exceptions to ensure
     proper derivation.
     """
+
+    def __init__(self, info):
+        self.lin = []
+        self.lout = []
+        self.info = info
+
+    def in_nodes_list(self):
+        return self.lin
+
+    def out_nodes_list(self):
+        return self.lout
+
+    def add_child(self, node):
+        self.lout.append(node)
+
+    def add_parent(self, node):
+        self.lin.append(node)
+
     def __str__(self):
         raise NotImplementedError()
 
