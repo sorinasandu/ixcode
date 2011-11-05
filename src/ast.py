@@ -81,6 +81,9 @@ class PrintNodeVisitor:
                 self.visit( next_node)
                 self.lvl -= 1
 
+    def visit(self, visitor):
+        raise NotImplementedError("%s" % self.__class__)
+
 class Block(Node):
     """
     A block of several instructions.
@@ -99,6 +102,12 @@ class Block(Node):
 
     def __str__(self):
         return "<block> {...}"
+
+    def visit(self, visitor):
+        ret = None
+        for i in self._instructions:
+            ret = i.visit(visitor)
+        return ret
 
 class Function(Node):
     """
@@ -125,6 +134,9 @@ class Function(Node):
         if self._block.is_block():
             return self._block.block()
         return self._block
+
+    def visit(self, visitor):
+        return self._block.visit(visitor)
 
 class TextNode(Node):
     """
@@ -236,6 +248,9 @@ class Instruction(TextNode):
         """
         return True
 
+    def visit(self, visitor):
+        pass
+
 class BreakInstruction(Instruction):
     """
     A break instruction.
@@ -307,6 +322,9 @@ class ForInstruction(Instruction):
     def link_blocks(self, header, exit, links):
         links[(header.bid, exit.bid)] = 'else'
         links[(exit.bid, header.bid)] = 'for %s' % self._header
+
+    def visit(self, visitor):
+        pass
 
 class MacroLoopInstruction(ForInstruction):
     """
@@ -445,6 +463,9 @@ class BlockInstruction(Instruction):
 
     def is_jump(self):
         return True
+
+    def visit(self, visitor):
+        return self._block.visit(visitor)
 
 class IfInstruction(Instruction):
     """
