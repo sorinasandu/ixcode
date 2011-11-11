@@ -28,6 +28,7 @@ class BB:
             BB.__bid__ += 1
         self._leader = None
         self._instrs = []
+        self._lout = []
 
     def build_new_BB(klass, blocks):
         new_block = BB()
@@ -39,6 +40,15 @@ class BB:
            self._leader.label() == label:
             return True
         return False
+
+    def get_link_list(self):
+        return self._lout
+
+    def add_link(self, node):
+        self._lout.append(node)
+
+    def accept (self, visitor):
+        return visitor (self)
 
     def set_istream(self, block, blocks, leaders, links, visited=[],
             unsolved_jumps={}):
@@ -359,6 +369,10 @@ def cleanup(blocks, links):
                 del links[(b, ob)]
         change = to_del != []
 
+class AstFunctionVisitor:
+    def __call__(self, instr):
+        print instr.__str__()
+
 def dot(fcts, opts):
     """
     Transform each function to the graphical representation.
@@ -375,9 +389,9 @@ def dot(fcts, opts):
         leaders = {}
         get_leaders(block, leaders)
 
-        import pdb
-        pdb.set_trace()
-        frepr.visit(None)
+#        import pdb
+#        pdb.set_trace()
+        frepr.visit(AstFunctionVisitor())
         # get BBs
         blocks = {START:BB(START), END:BB(END)}
         links = {}
@@ -398,3 +412,41 @@ def dot(fcts, opts):
             f.write(s)
         os.system('dot -Tpng %s > %s/%s.png' % (filename, opts.outdir, fname))
 
+
+class BBVisitor:
+
+    def __init__(self):
+        self.viz = []
+        self.lvl = 0
+
+    def __call__(self, node):
+
+        print '\t' * self.lvl + node.bid.__str__()
+        print '\t' * self.lvl + node.get_link_list().__str__()
+        print '\t' * self.lvl + node._instrs.__str__()
+
+        self.viz.append(node)
+
+        for next_node in node.get_link_list():
+            if next_node not in self.viz:
+                self.lvl += 1
+                self(next_node)
+                self.lvl -= 1
+
+
+def main():
+
+    b1 = BB()
+    b2 = BB()
+    b3 = BB()
+    b4 = BB()
+
+    b1.add_link(b2)
+    b1.add_link(b4)
+    b1.add_link(b3)
+    b2.add_link(b4)
+
+    b1.accept(BBVisitor())
+
+if __name__ == "__main__":
+    main ()

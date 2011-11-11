@@ -59,6 +59,9 @@ class Node:
     def add_parent(self, node):
         self.lin.append(node)
 
+    def visit(self, visitor):
+        return visitor(self)
+
     def __str__(self):
         return self.info.__str__()
 
@@ -137,6 +140,7 @@ class Function(Node):
 
     def visit(self, visitor):
         return self._block.visit(visitor)
+#        return visitor(self)
 
 class TextNode(Node):
     """
@@ -249,7 +253,9 @@ class Instruction(TextNode):
         return True
 
     def visit(self, visitor):
-        pass
+#        pass
+        visitor(self)
+
 
 class BreakInstruction(Instruction):
     """
@@ -324,7 +330,8 @@ class ForInstruction(Instruction):
         links[(exit.bid, header.bid)] = 'for %s' % self._header
 
     def visit(self, visitor):
-        pass
+        visitor(self)
+        self._content.visit(visitor)
 
 class MacroLoopInstruction(ForInstruction):
     """
@@ -381,6 +388,10 @@ class WhileInstruction(Instruction):
     def link_blocks(self, header, exit, links):
         links[(header.bid, exit.bid)] = 'else'
         links[(exit.bid, header.bid)] = 'while %s' % self._header
+
+    def visit(self, visitor):
+        visitor(self)
+        self._content.visit(visitor)
 
 class DoWhileInstruction(WhileInstruction):
     """
@@ -503,3 +514,7 @@ class IfInstruction(Instruction):
     def subblocks(self):
         return [(self._true, 'if %s' % self._cond), (self._false, 'else')]
 
+    def visit(self, visitor):
+        visitor(self)
+        self._true.visit(visitor)
+        self._false.visit(visitor)
