@@ -47,7 +47,7 @@ class BB:
     def add_link(self, node):
         self._lout.append(node)
 
-    def accept (self, visitor):
+    def visit (self, visitor):
         return visitor (self)
 
     def set_istream(self, block, blocks, leaders, links, visited=[],
@@ -391,7 +391,7 @@ def dot(fcts, opts):
 
 #        import pdb
 #        pdb.set_trace()
-        frepr.visit(AstFunctionVisitor())
+#        frepr.visit(AstFunctionVisitor())
         # get BBs
         blocks = {START:BB(START), END:BB(END)}
         links = {}
@@ -433,6 +433,28 @@ class BBVisitor:
                 self(next_node)
                 self.lvl -= 1
 
+class DotVisitor:
+
+    def __init__(self):
+        self.g = open('test.dot', 'w')
+        self.g.write('digraph {\n')
+        self.lvl = 0
+        self.viz = []
+
+    def __call__(self, node):
+        self.viz.append(node)
+
+        for next_node in node.get_link_list():
+            self.g.write('\t' + node.bid.__str__() + ' -> ' + \
+                    next_node.bid.__str__() + ';\n')
+            if next_node not in self.viz:
+                self.lvl += 1
+                self(next_node)
+                self.lvl -= 1
+
+        if  self.lvl == 0:
+            self.g.write('}')
+            self.g.close()
 
 def main():
 
@@ -445,8 +467,9 @@ def main():
     b1.add_link(b4)
     b1.add_link(b3)
     b2.add_link(b4)
-
-    b1.accept(BBVisitor())
+    b4.add_link(b1)
+#    b1.visit(BBVisitor())
+    b1.visit(DotVisitor())
 
 if __name__ == "__main__":
     main ()
