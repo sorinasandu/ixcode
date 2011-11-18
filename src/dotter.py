@@ -41,15 +41,6 @@ class BB:
             return True
         return False
 
-    def get_link_list(self):
-        return self._lout
-
-    def add_link(self, node):
-        self._lout.append(node)
-
-    def visit (self, visitor):
-        return visitor (self)
-
     def set_istream(self, block, blocks, leaders, links, visited=[],
             unsolved_jumps={}):
         """
@@ -251,11 +242,26 @@ class BB:
             s += '%s\\n' % fix('%s' % i)
         return s
 
+    def get_link_list(self):
+        return self._lout
+
+    def add_link(self, node):
+        self._lout.append(node)
+
+    def add_instruction(self, i):
+        self._instrs.append(i)
+
+    def add_leader(self, l):
+        self._leader = l
+
     def empty(self):
         return self._instrs == [] and self.bid >= 0
 
     def instrs(self):
         return self._instrs
+
+    def visit (self, visitor):
+        return visitor (self)
 
     def __str__(self):
         return '(%d)%s: [%s]' % (self.bid, self._leader, self._instrs)
@@ -389,7 +395,7 @@ def dot(fcts, opts):
         leaders = {}
         get_leaders(block, leaders)
 
-#        import pdb
+        import pdb
 #        pdb.set_trace()
 #        frepr.visit(AstFunctionVisitor())
         # get BBs
@@ -411,6 +417,22 @@ def dot(fcts, opts):
         with open(filename, 'w') as f:
             f.write(s)
         os.system('dot -Tpng %s > %s/%s.png' % (filename, opts.outdir, fname))
+
+       # pdb.set_trace()
+
+        firstBB = BB()
+        startBB = BB(START)
+        startBB.add_instruction("START")
+        endBB = BB(END)
+        endBB.add_instruction("END")
+        blocks = [startBB, firstBB, endBB]
+
+        lastBB = frepr.toBB(blocks, firstBB)
+
+        startBB.add_link(firstBB)
+        lastBB.add_link(endBB)
+
+        blocks[0].visit(DotVisitor())
 
 
 class BBVisitor:
@@ -440,9 +462,15 @@ class DotVisitor:
         self.g.write('digraph {\n')
         self.lvl = 0
         self.viz = []
+        self.description = ''
 
     def __call__(self, node):
         self.viz.append(node)
+        self.description += '\t%d [label=\"%s\"' % (node.bid, \
+                fix(node.instrs().__str__()))
+        if not node.instrs():
+            self.description += ', shape=\"point\"'
+        self.description += '];\n'
 
         for next_node in node.get_link_list():
             self.g.write('\t' + node.bid.__str__() + ' -> ' + \
@@ -453,6 +481,7 @@ class DotVisitor:
                 self.lvl -= 1
 
         if  self.lvl == 0:
+            self.g.write(self.description)
             self.g.write('}')
             self.g.close()
 
