@@ -468,7 +468,7 @@ class DotVisitor:
         self.viz.append(node)
         self.description += '\t%d [label=\"%s\"' % (node.bid, \
                 fix(node.instrs().__str__()))
-        if not node.instrs():
+        if not node.instrs() or node.instrs()[0] == '_POINT_':
             self.description += ', shape=\"point\"'
         self.description += '];\n'
 

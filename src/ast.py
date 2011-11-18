@@ -365,8 +365,21 @@ class ForInstruction(Instruction):
         visitor(self)
         self._content.visit(visitor)
 
- #   def toBB(self, BBlist, cBB):
-  #      raise NotImplementedError('%s' % self.__class__)
+    def toBB(self, BBlist, cBB):
+        firstBB = Expression('for (%s)' % self._header).toBB(BBlist, cBB)
+        lastBB = self._content.toBB(BBlist, firstBB)
+
+        newBB = lastBB
+
+        if lastBB.instrs():
+            newBB = BB()
+            lastBB.add_link(newBB)
+
+        newBB.add_instruction('_POINT_')
+        newBB.add_link(firstBB)
+#        firstBB.add_link(newBB)
+
+        return newBB
 
 class MacroLoopInstruction(ForInstruction):
     """
@@ -431,8 +444,21 @@ class WhileInstruction(Instruction):
         visitor(self)
         self._content.visit(visitor)
 
-  #  def toBB(self, BBlist, cBB):
-   #     raise NotImplementedError('%s' % self.__class__)
+    def toBB(self, BBlist, cBB):
+        firstBB = Expression('while (%s)' % self._header).toBB(BBlist, cBB)
+        lastBB = self._content.toBB(BBlist, firstBB)
+
+        newBB = lastBB
+
+        if lastBB.instrs():
+            newBB = BB()
+            lastBB.add_link(newBB)
+
+        newBB.add_instruction('_POINT_')
+        newBB.add_link(firstBB)
+#        firstBB.add_link(newBB)
+
+        return newBB
 
 class DoWhileInstruction(WhileInstruction):
     """
@@ -449,8 +475,15 @@ class DoWhileInstruction(WhileInstruction):
         # No else label :)
         links[(exit.bid, header.bid)] = 'do ... while %s' % self._header
 
- #   def toBB(self, BBlist, cBB):
-  #      raise NotImplementedError('%s' % self.__class__)
+    def toBB(self, BBlist, cBB):
+        firstBB = Expression('[do]').toBB(BBlist, cBB)
+        lastBB = self._content.toBB(BBlist, firstBB)
+        newBB = Expression('while (%s)' % self._header).toBB(BBlist, lastBB)
+
+        newBB.add_link(firstBB)
+#        firstBB.add_link(newBB)
+
+        return newBB
 
 class GoToInstruction(Instruction):
     """
@@ -573,7 +606,7 @@ class IfInstruction(Instruction):
         self._false.visit(visitor)
 
     def toBB(self, BBlist, cBB):
-        firstBB = self._cond.toBB(BBlist, cBB)
+        firstBB = Expression('if (%s)' % self._cond).toBB(BBlist, cBB)
         lastBB = BB()
         if self._true:
             newBB = self._true.toBB(BBlist, firstBB)
