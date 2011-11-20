@@ -221,6 +221,24 @@ int many_rets3()
 	return 2;
 }
 
+int many_rets4()
+{
+	int i;
+
+	for (i = 2; i < 15; i ++) {
+		if (1) {
+			return 5;
+			i = i + 15;
+		}
+		else
+			i++;
+	}
+
+	i = 3 + 4 + i * 14;
+
+	return 2;
+}
+
 int simple_if()
 {
 	int i;

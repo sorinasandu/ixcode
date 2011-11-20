@@ -29,6 +29,7 @@ class BB:
         self._leader = None
         self._instrs = []
         self._lout = []
+        self._ignore = False
 
     def build_new_BB(klass, blocks):
         new_block = BB()
@@ -229,6 +230,7 @@ class BB:
             return True
         return False # TODO: really?
 
+
     def description(self):
         s = ''
         if not self._instrs:
@@ -244,6 +246,12 @@ class BB:
 
     def get_link_list(self):
         return self._lout
+
+    def is_ignored(self):
+        return self._ignore
+
+    def set_ignore(self):
+        self._ignore = True
 
     def add_link(self, node):
         self._lout.append(node)
@@ -418,19 +426,20 @@ def dot(fcts, opts):
             f.write(s)
         os.system('dot -Tpng %s > %s/%s.png' % (filename, opts.outdir, fname))
 
-       # pdb.set_trace()
+#        pdb.set_trace()
 
         firstBB = BB()
         startBB = BB(START)
-        startBB.add_instruction("START")
+        startBB.add_instruction('START')
         endBB = BB(END)
-        endBB.add_instruction("END")
+        endBB.add_instruction('END')
         blocks = [startBB, firstBB, endBB]
 
         lastBB = frepr.toBB(blocks, firstBB)
 
         startBB.add_link(firstBB)
-        lastBB.add_link(endBB)
+        if not endBB in lastBB.get_link_list():
+            lastBB.add_link(endBB)
 
         blocks[0].visit(DotVisitor())
 
@@ -467,8 +476,8 @@ class DotVisitor:
     def __call__(self, node):
         self.viz.append(node)
         self.description += '\t%d [label=\"%s\"' % (node.bid, \
-                fix(node.instrs().__str__()))
-        if not node.instrs() or node.instrs()[0] == '_POINT_':
+                fix('%s' % node.instrs()))
+        if not node.instrs() or node.instrs()[0].__repr__() == '-->_POINT_<--':
             self.description += ', shape=\"point\"'
         self.description += '];\n'
 
