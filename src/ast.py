@@ -367,18 +367,14 @@ class ForInstruction(Instruction):
         firstBB = Expression('for (%s)' % self._header).toBB(BBlist, cBB)
         lastBB = self._content.toBB(BBlist, firstBB)
 
-        newBB = lastBB
-
-        if lastBB.instrs():
-            newBB = BB()
-            lastBB.add_link(newBB)
-
-        newBB.add_instruction(Expression('%s' % '_POINT_'))
-
-        newBB.add_link(firstBB)
-        firstBB.add_link(newBB)
+        if not lastBB.is_ignored():
+            newBB = (Expression('%s' % '_POINT_').toBB(BBlist, lastBB))
+            newBB.add_link(firstBB)
+        else:
+            newBB = (Expression('%s' % '_POINT_').toBB(BBlist, firstBB))
 
         return newBB
+
 
 class MacroLoopInstruction(ForInstruction):
     """
@@ -444,15 +440,11 @@ class WhileInstruction(Instruction):
         firstBB = Expression('while (%s)' % self._header).toBB(BBlist, cBB)
         lastBB = self._content.toBB(BBlist, firstBB)
 
-        newBB = lastBB
-
-        if lastBB.instrs():
-            newBB = BB()
-            lastBB.add_link(newBB)
-
-        newBB.add_instruction(Expression('%s' % '_POINT_'))
-        newBB.add_link(firstBB)
-        firstBB.add_link(newBB)
+        if not lastBB.is_ignored():
+            newBB = (Expression('%s' % '_POINT_').toBB(BBlist, lastBB))
+            newBB.add_link(firstBB)
+        else:
+            newBB = (Expression('%s' % '_POINT_').toBB(BBlist, firstBB))
 
         return newBB
 
@@ -474,6 +466,10 @@ class DoWhileInstruction(WhileInstruction):
     def toBB(self, BBlist, cBB):
         firstBB = Expression('do').toBB(BBlist, cBB)
         lastBB = self._content.toBB(BBlist, firstBB)
+
+        if lastBB.is_ignored():
+            return lastBB
+
         newBB = Expression('while (%s)' % self._header).toBB(BBlist, lastBB)
 
         newBB.add_link(firstBB)

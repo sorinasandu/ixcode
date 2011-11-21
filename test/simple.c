@@ -223,15 +223,17 @@ int many_rets3()
 
 int many_rets4()
 {
-	int i;
+	int i, j;
 
 	for (i = 2; i < 15; i ++) {
-		if (1) {
-			return 5;
-			i = i + 15;
+		i = i + 15;
+		if(i < 5)
+			return i;
+		i = i - 20;
+		for (j = 0; j < 5; j ++) {
+			return 20;
+			j = i + 5;
 		}
-		else
-			i++;
 	}
 
 	i = 3 + 4 + i * 14;
