@@ -1,4 +1,4 @@
-# IxCode - app for code spelunking :: block diagram
+# ixcode - app for code spelunking :: block diagram
 # Transform functions to the corresponding block diagram
 
 import os
@@ -248,8 +248,16 @@ class BB:
     def add_link(self, node):
         self._lout.append(node)
 
+    def remove_links(self):
+        self._lout = []
+
     def add_instruction(self, i):
         self._instrs.append(i)
+
+    def first_instr(self):
+        if not self.instrs():
+            return None
+        return self._instrs[0]
 
     def add_leader(self, l):
         self._leader = l
@@ -375,10 +383,6 @@ def cleanup(blocks, links):
                 del links[(b, ob)]
         change = to_del != []
 
-class AstFunctionVisitor:
-    def __call__(self, instr):
-        print instr.__str__()
-
 def dot(fcts, opts):
     """
     Transform each function to the graphical representation.
@@ -395,9 +399,6 @@ def dot(fcts, opts):
         leaders = {}
         get_leaders(block, leaders)
 
-        import pdb
-#        pdb.set_trace()
-#        frepr.visit(AstFunctionVisitor())
         # get BBs
         blocks = {START:BB(START), END:BB(END)}
         links = {}
@@ -418,42 +419,45 @@ def dot(fcts, opts):
             f.write(s)
         os.system('dot -Tpng %s > %s/%s.png' % (filename, opts.outdir, fname))
 
-       # pdb.set_trace()
+        import ast
 
-        firstBB = BB()
-        startBB = BB(START)
-        startBB.add_instruction("START")
-        endBB = BB(END)
-        endBB.add_instruction("END")
-        blocks = [startBB, firstBB, endBB]
+        BBlabels = {}
 
-        lastBB = frepr.toBB(blocks, firstBB)
+        firstBB = ast.LabelInstruction('%s' % 'START').toBB(BBlabels, BB())
+        lastBB = frepr.toBB(BBlabels, firstBB)
+        ast.LabelInstruction('%s' % 'END').toBB(BBlabels, lastBB)
 
-        startBB.add_link(firstBB)
-        lastBB.add_link(endBB)
+        BBlabels['END'].remove_links()
 
-        blocks[0].visit(DotVisitor())
+        link_labels(BBlabels['START'], BBlabels, [], None)
+        BBlabels['START'].visit(DotVisitor())
 
+def link_labels(node, labels, viz, last_loop):
 
-class BBVisitor:
+    viz.append(node)
 
-    def __init__(self):
-        self.viz = []
-        self.lvl = 0
+    i = node.first_instr()
+    if i and i.is_instr() and i.is_loop():
+        last_loop = node
 
-    def __call__(self, node):
+    for next_node in node.get_link_list():
+        if next_node not in viz:
+            link_labels(next_node, labels, viz, last_loop)
 
-        print '\t' * self.lvl + node.bid.__str__()
-        print '\t' * self.lvl + node.get_link_list().__str__()
-        print '\t' * self.lvl + node._instrs.__str__()
-
-        self.viz.append(node)
-
-        for next_node in node.get_link_list():
-            if next_node not in self.viz:
-                self.lvl += 1
-                self(next_node)
-                self.lvl -= 1
+    if i and i.is_instr():
+        if i.is_goto():
+            node.remove_links()
+            node.add_link(labels[i.label()])
+        if i.is_return():
+            node.remove_links()
+            node.add_link(labels['END'])
+        if i.is_continue():
+            node.remove_links()
+            node.add_link(last_loop)
+        if i.is_break():
+            last = labels[last_loop]
+            node.remove_links()
+            node.add_link(last)
 
 class DotVisitor:
 
@@ -468,7 +472,7 @@ class DotVisitor:
         self.viz.append(node)
         self.description += '\t%d [label=\"%s\"' % (node.bid, \
                 fix(node.instrs().__str__()))
-        if not node.instrs() or node.instrs()[0] == '_POINT_':
+        if not node.instrs() or node.instrs()[0].is_point():
             self.description += ', shape=\"point\"'
         self.description += '];\n'
 
@@ -485,20 +489,3 @@ class DotVisitor:
             self.g.write('}')
             self.g.close()
 
-def main():
-
-    b1 = BB()
-    b2 = BB()
-    b3 = BB()
-    b4 = BB()
-
-    b1.add_link(b2)
-    b1.add_link(b4)
-    b1.add_link(b3)
-    b2.add_link(b4)
-    b4.add_link(b1)
-#    b1.visit(BBVisitor())
-    b1.visit(DotVisitor())
-
-if __name__ == "__main__":
-    main ()

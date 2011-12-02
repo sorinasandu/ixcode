@@ -28,7 +28,7 @@ class File():
     def visit(self, visitor):
         raise NotImplementedError('%s' % self.__class__)
 
-    def toBB(self, BBlist, cBB):
+    def toBB(self, BBlabels, cBB):
         raise NotImplementedError('%s' % self.__class__)
 
     def __iter__(self):
@@ -50,27 +50,13 @@ class Node:
     proper derivation.
     """
 
-    def __init__(self, info):
-        self.lin = []
-        self.lout = []
+    def __init__(self, info = None):
         self.info = info
-
-    def in_nodes_list(self):
-        return self.lin
-
-    def out_nodes_list(self):
-        return self.lout
-
-    def add_child(self, node):
-        self.lout.append(node)
-
-    def add_parent(self, node):
-        self.lin.append(node)
 
     def visit(self, visitor):
         return visitor(self)
 
-    def toBB(self, BBlist, cBB):
+    def toBB(self, BBlabels, cBB):
         raise NotImplementedError('%s' % self.__class__)
 
     def __str__(self):
@@ -95,10 +81,10 @@ class Block(Node):
     def instrs(self):
         return self._instructions
 
-    def toBB(self, BBlist, cBB):
+    def toBB(self, BBlabels, cBB):
         lastBB = cBB
         for i in self._instructions:
-            lastBB = i.toBB(BBlist, lastBB)
+            lastBB = i.toBB(BBlabels, lastBB)
         return lastBB
 
     def __str__(self):
@@ -136,8 +122,8 @@ class Function(Node):
     def visit(self, visitor):
         return self._block.visit(visitor)
 
-    def toBB(self, BBlist, cBB):
-        return self._block.toBB(BBlist, cBB)
+    def toBB(self, BBlabels, cBB):
+        return self._block.toBB(BBlabels, cBB)
 
     def __str__(self):
         return self._text
@@ -147,12 +133,19 @@ class TextNode(Node):
     A node containing a text describing the corresponding instruction.
     """
 
-    def toBB(self, BBlist, cBB):
+    def is_instr(self):
+        return False
+
+    def is_point(self):
+        return False
+
+    def toBB(self, BBlabels, cBB):
+        if not cBB:
+            cBB = BB()
         if cBB.instrs():
             newBB = BB()
             newBB.add_instruction(self)
             cBB.add_link(newBB)
-            BBlist.append(newBB)
             return newBB
         cBB.add_instruction(self)
         return cBB
@@ -169,6 +162,13 @@ class Expression(TextNode):
     purposes of this program.
     """
     pass
+
+class Point(TextNode):
+    """
+    A node to be displayed as a simple dot in the diagram.
+    """
+    def is_point(self):
+        return True
 
 class Instruction(TextNode):
     """
@@ -187,6 +187,9 @@ class Instruction(TextNode):
         Returns True if this instruction leads a basic block.
         """
         return self._leader
+
+    def is_instr(self):
+        return True
 
     def is_block(self):
         """
@@ -261,20 +264,22 @@ class Instruction(TextNode):
         """
         True if this is a continue instruction.
         """
-        return True
+        return False
 
     def visit(self, visitor):
         visitor(self)
 
-    def toBB(self, BBlist, cBB):
+    def toBB(self, BBlabels, cBB):
+        if not cBB:
+            cBB = BB()
+
         if not self.is_leader() or not cBB.instrs():
-            cBB.add_instruction(self._text);
+            cBB.add_instruction(self);
             return cBB
 
         newBB = BB();
-        newBB.add_instruction(self._text);
+        newBB.add_instruction(self);
         cBB.add_link(newBB)
-        BBlist.append(newBB)
         return newBB
 
 class BreakInstruction(Instruction):
@@ -287,9 +292,12 @@ class BreakInstruction(Instruction):
     def is_break(self):
         return True
 
- #   def toBB(self, BBlist, cBB):
-  #      raise NotImplementedError('%s' % self.__class__)
+    def toBB(self, BBlabels, cBB):
+        cBB = (Instruction).toBB(self, BBlabels, cBB)
+        lastBB = BB()
+        cBB.add_link(lastBB)
 
+        return lastBB
 
 class ContinueInstruction(Instruction):
     """
@@ -301,9 +309,12 @@ class ContinueInstruction(Instruction):
     def is_continue(self):
         return True
 
- #   def toBB(self, BBlist, cBB):
- #       raise NotImplementedError('%s' % self.__class__)
+    def toBB(self, BBlabels, cBB):
+        cBB = (Instruction).toBB(self, BBlabels, cBB)
+        lastBB = BB()
+        cBB.add_link(lastBB)
 
+        return lastBB
 
 class RetInstruction(Instruction):
     """
@@ -316,9 +327,12 @@ class RetInstruction(Instruction):
     def is_return(self):
         return True
 
- #   def toBB(self, BBlist, cBB):
-  #      raise NotImplementedError('%s' % self.__class__)
+    def toBB(self, BBlabels, cBB):
+        cBB = (Instruction).toBB(self, BBlabels, cBB)
+        lastBB = BB()
+        cBB.add_link(lastBB)
 
+        return lastBB
 
 class ForInstruction(Instruction):
     """
@@ -327,6 +341,7 @@ class ForInstruction(Instruction):
     def __init__(self, header, content):
         Instruction.__init__(self, "for %s {...}" % header)
         self._header = header
+        self._leader = True
         if not content.is_block():
             self._content = Block()
             self._content.add(content)
@@ -365,19 +380,16 @@ class ForInstruction(Instruction):
         visitor(self)
         self._content.visit(visitor)
 
-    def toBB(self, BBlist, cBB):
-        firstBB = Expression('for (%s)' % self._header).toBB(BBlist, cBB)
-        lastBB = self._content.toBB(BBlist, firstBB)
+    def toBB(self, BBlabels, cBB):
+        firstBB = (Instruction).toBB(self, BBlabels, cBB)
+        lastBB = self._content.toBB(BBlabels, firstBB)
 
-        newBB = lastBB
+        newBB = Point('%s' % '_POINT_').toBB(BBlabels, lastBB)
 
-        if lastBB.instrs():
-            newBB = BB()
-            lastBB.add_link(newBB)
-
-        newBB.add_instruction('_POINT_')
         newBB.add_link(firstBB)
-#        firstBB.add_link(newBB)
+        firstBB.add_link(newBB)
+
+        BBlabels[firstBB] = newBB
 
         return newBB
 
@@ -396,7 +408,7 @@ class MacroLoopInstruction(ForInstruction):
         links[(header.bid, exit.bid)] = 'else'
         links[(exit.bid, header.bid)] = '%s' % self._header
 
- #   def toBB(self, BBlist, cBB):
+ #   def toBB(self, BBlabels, cBB):
   #      raise NotImplementedError('%s' % self.__class__)
 
 class WhileInstruction(Instruction):
@@ -406,6 +418,7 @@ class WhileInstruction(Instruction):
     def __init__(self, header, content):
         Instruction.__init__(self, "while (%s) {...}" % header)
         self._header = header
+        self._leader = True
         if not content.is_block():
             self._content = Block()
             self._content.add(content)
@@ -444,19 +457,16 @@ class WhileInstruction(Instruction):
         visitor(self)
         self._content.visit(visitor)
 
-    def toBB(self, BBlist, cBB):
-        firstBB = Expression('while (%s)' % self._header).toBB(BBlist, cBB)
-        lastBB = self._content.toBB(BBlist, firstBB)
+    def toBB(self, BBlabels, cBB):
+        firstBB = (Instruction).toBB(self, BBlabels, cBB)
+        lastBB = self._content.toBB(BBlabels, firstBB)
 
-        newBB = lastBB
+        newBB = Point('%s' % '_POINT_').toBB(BBlabels, lastBB)
 
-        if lastBB.instrs():
-            newBB = BB()
-            lastBB.add_link(newBB)
-
-        newBB.add_instruction('_POINT_')
         newBB.add_link(firstBB)
-#        firstBB.add_link(newBB)
+        firstBB.add_link(newBB)
+
+        BBlabels[firstBB] = newBB
 
         return newBB
 
@@ -467,6 +477,7 @@ class DoWhileInstruction(WhileInstruction):
     def __init__(self, header, content):
         WhileInstruction.__init__(self, "do {...} while (%s)" % header, content)
         self._header = header
+        self._leader = True
 
     def pass_through(self):
         return False
@@ -475,12 +486,13 @@ class DoWhileInstruction(WhileInstruction):
         # No else label :)
         links[(exit.bid, header.bid)] = 'do ... while %s' % self._header
 
-    def toBB(self, BBlist, cBB):
-        firstBB = Expression('[do]').toBB(BBlist, cBB)
-        lastBB = self._content.toBB(BBlist, firstBB)
-        newBB = Expression('while (%s)' % self._header).toBB(BBlist, lastBB)
+    def toBB(self, BBlabels, cBB):
+        firstBB = (Instruction).toBB(self, BBlabels, cBB)
+        lastBB = self._content.toBB(BBlabels, firstBB)
+        newBB = Expression('while (%s)' % self._header).toBB(BBlabels, lastBB)
 
         newBB.add_link(firstBB)
+        BBlabels[firstBB] = newBB
 #        firstBB.add_link(newBB)
 
         return newBB
@@ -495,6 +507,7 @@ class GoToInstruction(Instruction):
         """
         Instruction.__init__(self, "goto %s;" % label)
         self._label = label
+        self._leader = True
 
     def is_jump(self):
         return True
@@ -508,8 +521,12 @@ class GoToInstruction(Instruction):
         """
         return self._label
 
-#    def toBB(self, BBlist, cBB):
-#        raise NotImplementedError('%s' % self.__class__)
+    def toBB(self, BBlabels, cBB):
+        cBB = (Instruction).toBB(self, BBlabels, cBB)
+        lastBB = BB()
+        cBB.add_link(lastBB)
+
+        return lastBB
 
 class LabelInstruction(Instruction):
     """
@@ -532,8 +549,13 @@ class LabelInstruction(Instruction):
         """
         return '%s' % self._label
 
-#    def toBB(self, BBlist, cBB):
-#        raise NotImplementedError('%s' % self.__class__)
+    def toBB(self, BBlabels, cBB):
+        cBB = (Instruction).toBB(self, BBlabels, cBB)
+        lastBB = BB()
+        cBB.add_link(lastBB)
+        BBlabels['%s' % self._label] = cBB
+
+        return lastBB
 
 class BlockInstruction(Instruction):
     """
@@ -561,8 +583,8 @@ class BlockInstruction(Instruction):
     def visit(self, visitor):
         return self._block.visit(visitor)
 
-    def toBB(self, BBlist, cBB):
-        return self._block.toBB(BBlist, cBB)
+    def toBB(self, BBlabels, cBB):
+        return self._block.toBB(BBlabels, cBB)
 
 class IfInstruction(Instruction):
     """
@@ -571,6 +593,7 @@ class IfInstruction(Instruction):
     def __init__(self, cond, true, false):
         Instruction.__init__(self, "if (%s){...}" % cond)
         self._cond = cond
+        self._leader = True
 
         if not true.is_block():
             self._true = Block()
@@ -605,14 +628,14 @@ class IfInstruction(Instruction):
         self._true.visit(visitor)
         self._false.visit(visitor)
 
-    def toBB(self, BBlist, cBB):
-        firstBB = Expression('if (%s)' % self._cond).toBB(BBlist, cBB)
+    def toBB(self, BBlabels, cBB):
+        firstBB = (Instruction).toBB(self, BBlabels, cBB)
         lastBB = BB()
         if self._true:
-            newBB = self._true.toBB(BBlist, firstBB)
+            newBB = self._true.toBB(BBlabels, firstBB)
             newBB.add_link(lastBB)
         if self._false:
-            newBB = self._false.toBB(BBlist, firstBB)
+            newBB = self._false.toBB(BBlabels, firstBB)
             newBB.add_link(lastBB)
         else:
             firstBB.add_link(lastBB)
